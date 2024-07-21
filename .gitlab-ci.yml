@@ -1,0 +1,112 @@
+stages:
+  - code_quality
+  - test
+  - build
+  - deploy
+
+variables:
+  KEYSTORE_FILE: "$CI_PROJECT_DIR/.secrets/upload-key.jks"
+  KEYSTORE_PASSWORD: "your_keystore_password"
+  KEY_ALIAS: "your_key_alias"
+  KEY_PASSWORD: "your_key_password"
+  GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: "$CI_PROJECT_DIR/google_play_service_account.json"
+  SONAR_SCANNER_VERSION: "4.7.0.2747"
+  SONAR_SCANNER_HOME: "$CI_PROJECT_DIR/.sonar-scanner"
+
+# SonarQube code quality analysis
+code_quality:
+  stage: code_quality
+  image: "sonarsource/sonar-scanner-cli:${SONAR_SCANNER_VERSION}"
+  script:
+    - sonar-scanner -Dsonar.projectKey=my_project -Dsonar.sources=lib -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_LOGIN
+  allow_failure: true
+  only:
+    - dev
+    - uat
+    - prod
+
+test:
+  stage: test
+  image: "ghcr.io/cirruslabs/flutter:3.10.3"
+  before_script:
+    - flutter pub global activate junitreport
+    - export PATH="$PATH:$HOME/.pub-cache/bin"
+  script:
+    - flutter pub get
+    - flutter test --machine --coverage --flavor $CI_COMMIT_REF_NAME | tojunit -o report-$CI_COMMIT_REF_NAME.xml
+    - lcov --summary coverage/lcov.info
+    - genhtml coverage/lcov.info --output=coverage/$CI_COMMIT_REF_NAME
+  coverage: '/lines\.*: \d+\.\d+\%/'
+  artifacts:
+    name: coverage_$CI_COMMIT_REF_NAME
+    paths:
+      - $CI_PROJECT_DIR/coverage/$CI_COMMIT_REF_NAME
+    reports:
+      junit: report-$CI_COMMIT_REF_NAME.xml
+  only:
+    - dev
+    - uat
+    - prod
+
+build:
+  stage: build
+  image: "alpine:latest"
+  before_script:
+    - apk add --no-cache ruby ruby-dev openjdk11 bash
+    - gem install fastlane
+    - curl -o $KEYSTORE_FILE ${CI_JOB_TOKEN}@${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/android/app/my-upload-key.jks?job=build
+    - curl -o $GOOGLE_PLAY_SERVICE_ACCOUNT_JSON ${CI_JOB_TOKEN}@${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/google_play_service_account.json?job=build
+  script:
+    - |
+      # Build Android
+      flutter pub get
+      flutter build appbundle --flavor $CI_COMMIT_REF_NAME --release
+    - |
+      # Build iOS
+      fastlane ios build --env $CI_COMMIT_REF_NAME
+  artifacts:
+    paths:
+      - build/app/outputs/bundle/${CI_COMMIT_REF_NAME}Release/app-${CI_COMMIT_REF_NAME}-release.aab
+      - build/ios/ipa/${CI_COMMIT_REF_NAME}.ipa
+  only:
+    - dev
+    - uat
+    - prod
+
+deploy_uat:
+  stage: deploy
+  image: "google/cloud-sdk:slim"
+  before_script:
+    - echo $FIREBASE_SERVICE_ACCOUNT_JSON > $CI_PROJECT_DIR/firebase_service_account.json
+    - apk add --no-cache ruby ruby-dev
+    - gem install fastlane
+    - gcloud auth activate-service-account --key-file=$CI_PROJECT_DIR/firebase_service_account.json
+  script:
+    - |
+      # Android Deployment
+      gcloud firebase appdistribution apps distribute build/app/outputs/bundle/uatRelease/app-uat-release.aab --app $FIREBASE_APP_ID --groups testers
+    - |
+      # iOS Deployment
+      fastlane ios beta --env uat
+  environment: uat
+  only:
+    - uat
+
+deploy_prod:
+  stage: deploy
+  image: "alpine:latest"
+  before_script:
+    - apk add --no-cache ruby ruby-dev openjdk11 bash
+    - gem install fastlane
+    - curl -o $KEYSTORE_FILE ${CI_JOB_TOKEN}@${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/android/app/my-upload-key.jks?job=build
+    - curl -o $GOOGLE_PLAY_SERVICE_ACCOUNT_JSON ${CI_JOB_TOKEN}@${CI_SERVER_URL}/api/v4/projects/${CI_PROJECT_ID}/jobs/artifacts/${CI_COMMIT_REF_NAME}/raw/google_play_service_account.json?job=build
+  script:
+    - |
+      # Android Deployment
+      fastlane supply --aab build/app/outputs/bundle/prodRelease/app-prod-release.aab --json_key $GOOGLE_PLAY_SERVICE_ACCOUNT_JSON --package_name your.package.name --track production --skip_upload_apk true --skip_upload_metadata true --skip_upload_images true --skip_upload_screenshots true
+    - |
+      # iOS Deployment
+      fastlane ios appstore --env prod
+  environment: production
+  only:
+    - prod

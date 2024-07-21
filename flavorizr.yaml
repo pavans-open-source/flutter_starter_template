@@ -1,0 +1,56 @@
+flavorizr:
+ide: "vscode"  
+flavors:
+    dev:
+      app:
+        name: "App Dev"
+      android:
+        applicationId: "com.app.dev"  
+        icon: "flavors/assets/dev/launcher_dev.png"
+        firebase:
+          config: "flavors/firebase/dev/google-services_dev.json"
+      ios:
+        bundleId: "com.app.dev"
+        buildSettings:
+          DEVELOPMENT_TEAM: YOURDEVTEAMID 
+          PROVISIONING_PROFILE_SPECIFIER: "Dev-ProvisioningProfile"
+        icon: "flavors/assets/dev/launcher_dev.png"
+        firebase:
+          config: "flavors/firebase/dev/GoogleService-Info_dev.plist"
+      
+
+    prod:
+      app:
+        name: "App Prod"
+      android:
+        applicationId: "com.app.prod"
+        icon: "flavors/assets/prod/launcher_prod.png"
+        firebase:
+          config: "flavors/firebase/prod/google-services_prod.json"
+      ios:
+        bundleId: "com.app.prod"
+        buildSettings:
+          DEVELOPMENT_TEAM: YOURPRODTEAMID 
+          PROVISIONING_PROFILE_SPECIFIER: "Prod-ProvisioningProfile"
+        icon: "flavors/assets/prod/launcher_prod.png"
+        firebase:
+          config: "flavors/firebase/prod/GoogleService-Info_prod.plist"
+
+
+    uat:
+      app:
+        name: "App UAT"
+
+      android:
+        applicationId: "com.app.uat"
+        icon: "flavors/assets/uat/launcher_uat.png"
+        firebase:
+          config: "flavors/firebase/uat/google-services_uat.json"
+      ios:
+        bundleId: "com.app.uat"
+        buildSettings:
+          DEVELOPMENT_TEAM: YOURUATTEAMID 
+          PROVISIONING_PROFILE_SPECIFIER: "Uat-ProvisioningProfile"
+        icon: "flavors/assets/uat/launcher_uat.png"
+        firebase:
+          config: "flavors/firebase/uat/GoogleService-Info_uat.plist"
