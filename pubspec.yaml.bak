@@ -90,9 +90,3 @@ flutter:
   # see https://flutter.dev/custom-fonts/#from-packages
 
 
-  assets:
-    - assets/home/icons/
-    - assets/home/images/
-    - assets/login/icons/
-    - assets/login/images/
-

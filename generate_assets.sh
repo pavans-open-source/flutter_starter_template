@@ -25,6 +25,64 @@ to_camel_case() {
     echo "$camel_case"
 }
 
+update_pubspec() {
+    local pubspec_file="pubspec.yaml"
+    local temp_file="${pubspec_file}.tmp"
+    local backup_file="${pubspec_file}.bak"
+
+    # Check if pubspec.yaml exists
+    if [ ! -f "$pubspec_file" ]; then
+        echo "pubspec.yaml not found!"
+        exit 1
+    fi
+
+    # Backup the original pubspec.yaml
+    cp "$pubspec_file" "$backup_file"
+
+    # Create a temporary file for updated content
+    : > "$temp_file"
+
+    # Flag to identify if we are in the flutter section
+    in_flutter_section=false
+
+    while IFS= read -r line; do
+        # If we find the start of the flutter section, set the flag
+        if [[ "$line" =~ ^[[:space:]]*flutter: ]]; then
+            in_flutter_section=true
+        fi
+
+        # If we are in the flutter section and find assets, stop writing until we reach the end
+        if $in_flutter_section && [[ "$line" =~ ^[[:space:]]*assets: ]]; then
+            in_flutter_section=true
+            # Skip lines until end of assets section
+            while IFS= read -r inner_line; do
+                if [[ "$inner_line" =~ ^[[:space:]]*$ ]]; then
+                    break
+                fi
+            done
+            continue
+        fi
+
+        # Write other lines to the temporary file
+        echo "$line" >> "$temp_file"
+    done < "$pubspec_file"
+
+    # Add the new flutter and assets section
+    echo "  assets:" >> "$temp_file"
+    for feature in assets/*; do
+        if [ -d "$feature" ]; then
+            feature_name=$(basename "$feature")
+            echo "    - assets/$feature_name/icons/" >> "$temp_file"
+            echo "    - assets/$feature_name/images/" >> "$temp_file"
+        fi
+    done
+
+    # Replace the old pubspec.yaml with the updated content
+    mv "$temp_file" "$pubspec_file"
+
+    echo "pubspec.yaml updated successfully."
+}
+
 # Iterate over each feature directory
 for feature in assets/*; do
     if [ -d "$feature" ]; then
@@ -72,3 +130,5 @@ EOL
 EOL
     fi
 done
+
+update_pubspec
