@@ -39,9 +39,9 @@ if [ ! -d "lib/flavors" ]; then
     fi
 fi
 
-echo "Moving flavor files to flavor folder..."
-mv -f lib/main*.dart "lib/flavors/"
-mv -f lib/flavors.dart lib/flavors/
+# echo "Moving flavor files to flavor folder..."
+# mv -f lib/main*.dart "lib/flavors/"
+# mv -f lib/flavors.dart lib/flavors/
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to move files to the flavors directory." >&2
