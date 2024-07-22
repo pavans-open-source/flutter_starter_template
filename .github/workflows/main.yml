@@ -1,0 +1,117 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - dev
+      - uat
+      - prod
+
+jobs:
+  code_quality:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/prod'
+    env:
+      SONAR_SCANNER_VERSION: '4.7.0.2747'
+      SONAR_SCANNER_HOME: ${{ github.workspace }}/.sonar-scanner
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_LOGIN: ${{ secrets.SONAR_LOGIN }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up SonarScanner
+        run: curl -sSLo $SONAR_SCANNER_HOME/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip && unzip $SONAR_SCANNER_HOME/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip -d $SONAR_SCANNER_HOME
+      - name: Run SonarQube analysis
+        run: $SONAR_SCANNER_HOME/sonar-scanner-${SONAR_SCANNER_VERSION}/bin/sonar-scanner -Dsonar.projectKey=my_project -Dsonar.sources=lib -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_LOGIN
+        continue-on-error: true
+
+  test:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/prod'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.10.3'
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Run tests
+        run: flutter test --machine --coverage --flavor ${{ github.ref_name }} | tojunit -o report-${{ github.ref_name }}.xml
+      - name: Generate coverage report
+        run: |
+          lcov --summary coverage/lcov.info
+          genhtml coverage/lcov.info --output=coverage/${{ github.ref_name }}
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v2
+        with:
+          name: coverage_${{ github.ref_name }}
+          path: coverage/${{ github.ref_name }}
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-results
+          path: report-${{ github.ref_name }}.xml
+
+  build:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/prod'
+    env:
+      KEYSTORE_FILE: ${{ github.workspace }}/.secrets/upload-key.jks
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ github.workspace }}/google_play_service_account.json
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up environment
+        run: sudo apt-get update && sudo apt-get install -y openjdk-11-jdk ruby ruby-dev && gem install fastlane
+      - name: Download keystore file
+        run: curl -o $KEYSTORE_FILE ${{ secrets.CI_JOB_TOKEN }}@${{ secrets.CI_SERVER_URL }}/api/v4/projects/${{ secrets.CI_PROJECT_ID }}/jobs/artifacts/${{ github.ref_name }}/raw/android/app/my-upload-key.jks?job=build
+      - name: Download Google Play service account JSON
+        run: curl -o $GOOGLE_PLAY_SERVICE_ACCOUNT_JSON ${{ secrets.CI_JOB_TOKEN }}@${{ secrets.CI_SERVER_URL }}/api/v4/projects/${{ secrets.CI_PROJECT_ID }}/jobs/artifacts/${{ github.ref_name }}/raw/google_play_service_account.json?job=build
+      - name: Build Android
+        run: flutter build appbundle --flavor ${{ github.ref_name }} --release
+      - name: Build iOS
+        run: fastlane ios build --env ${{ github.ref_name }}
+      - name: Upload Android build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/${{ github.ref_name }}Release/app-${{ github.ref_name }}-release.aab
+      - name: Upload iOS build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ios-ipa
+          path: build/ios/ipa/${{ github.ref_name }}.ipa
+
+  deploy_uat:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/uat'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up environment
+        run: sudo apt-get update && sudo apt-get install -y ruby ruby-dev && gem install fastlane
+      - name: Set up Firebase service account
+        run: echo ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }} > ${{ github.workspace }}/firebase_service_account.json
+      - name: Authenticate with gcloud
+        run: gcloud auth activate-service-account --key-file=${{ github.workspace }}/firebase_service_account.json
+      - name: Deploy Android to Firebase
+        run: gcloud firebase appdistribution apps distribute build/app/outputs/bundle/uatRelease/app-uat-release.aab --app ${{ secrets.FIREBASE_APP_ID }} --groups testers
+      - name: Deploy iOS to TestFlight
+        run: fastlane ios beta --env uat
+
+  deploy_prod:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/prod'
+    env:
+      KEYSTORE_FILE: ${{ github.workspace }}/.secrets/upload-key.jks
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ github.workspace }}/google_play_service_account.json
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up environment
+        run: sudo apt-get update && sudo apt-get install -y openjdk-11-jdk ruby ruby-dev && gem install fastlane
+      - name: Download keystore file
+        run: curl -o $KEYSTORE_FILE ${{ secrets.CI_JOB_TOKEN }}@${{ secrets.CI_SERVER_URL }}/api/v4/projects/${{ secrets.CI_PROJECT_ID }}/jobs/artifacts/${{ github.ref_name }}/raw/android/app/my-upload-key.jks?job=build
+      - name: Download Google Play service account JSON
+        run: curl -o $GOOGLE_PLAY_SERVICE_ACCOUNT_JSON ${{ secrets.CI_JOB_TOKEN }}@${{ secrets.CI_SERVER_URL }}/api/v4/projects/${{ secrets.CI_PROJECT_ID }}/jobs/artifacts/${{ github.ref_name }}/raw/google_play_service_account.json?job=build
+      - name: Deploy Android to Google Play
+        run: fastlane supply --aab build/app/outputs/bundle/prodRelease/app-prod-release.aab --json_key $GOOGLE_PLAY_SERVICE_ACCOUNT_JSON --package_name your.package.name --track production --skip_upload_apk true --skip_upload_metadata true --skip_upload_images true --skip_upload_screenshots true
+      - name: Deploy iOS to App Store
+        run: fastlane ios appstore --env prod
