@@ -7,13 +7,20 @@ on:
       - uat
       - prod
 
+env:
+  KEYSTORE_FILE: ${{ github.workspace }}/.secrets/upload-key.jks
+  KEYSTORE_PASSWORD: 'your_keystore_password'
+  KEY_ALIAS: 'your_key_alias'
+  KEY_PASSWORD: 'your_key_password'
+  SONAR_SCANNER_VERSION: '4.7.0.2747'
+  SONAR_SCANNER_HOME: ${{ github.workspace }}/.sonar-scanner
+  GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ github.workspace }}/google_play_service_account.json
+
 jobs:
   code_quality:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/prod'
     env:
-      SONAR_SCANNER_VERSION: '4.7.0.2747'
-      SONAR_SCANNER_HOME: ${{ github.workspace }}/.sonar-scanner
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       SONAR_LOGIN: ${{ secrets.SONAR_LOGIN }}
     steps:
@@ -55,9 +62,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/prod'
-    env:
-      KEYSTORE_FILE: ${{ github.workspace }}/.secrets/upload-key.jks
-      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ github.workspace }}/google_play_service_account.json
     steps:
       - uses: actions/checkout@v2
       - name: Set up environment
@@ -100,9 +104,6 @@ jobs:
   deploy_prod:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/prod'
-    env:
-      KEYSTORE_FILE: ${{ github.workspace }}/.secrets/upload-key.jks
-      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ github.workspace }}/google_play_service_account.json
     steps:
       - uses: actions/checkout@v2
       - name: Set up environment
