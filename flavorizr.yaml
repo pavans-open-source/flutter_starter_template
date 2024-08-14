@@ -5,12 +5,12 @@ flavors:
       app:
         name: "App Dev"
       android:
-        applicationId: "com.app.dev"  
+        applicationId: "com.example.dev"  
         icon: "flavors/assets/dev/launcher_dev.png"
         firebase:
           config: "flavors/firebase/dev/google-services_dev.json"
       ios:
-        bundleId: "com.app.dev"
+        bundleId: "com.example.dev"
         buildSettings:
           DEVELOPMENT_TEAM: YOURDEVTEAMID 
           PROVISIONING_PROFILE_SPECIFIER: "Dev-ProvisioningProfile"
@@ -23,12 +23,12 @@ flavors:
       app:
         name: "App Prod"
       android:
-        applicationId: "com.app.prod"
+        applicationId: "com.example.prod"
         icon: "flavors/assets/prod/launcher_prod.png"
         firebase:
           config: "flavors/firebase/prod/google-services_prod.json"
       ios:
-        bundleId: "com.app.prod"
+        bundleId: "com.example.prod"
         buildSettings:
           DEVELOPMENT_TEAM: YOURPRODTEAMID 
           PROVISIONING_PROFILE_SPECIFIER: "Prod-ProvisioningProfile"
@@ -42,12 +42,12 @@ flavors:
         name: "App UAT"
 
       android:
-        applicationId: "com.app.uat"
+        applicationId: "com.example.uat"
         icon: "flavors/assets/uat/launcher_uat.png"
         firebase:
           config: "flavors/firebase/uat/google-services_uat.json"
       ios:
-        bundleId: "com.app.uat"
+        bundleId: "com.example.uat"
         buildSettings:
           DEVELOPMENT_TEAM: YOURUATTEAMID 
           PROVISIONING_PROFILE_SPECIFIER: "Uat-ProvisioningProfile"

@@ -31,17 +31,17 @@ android {
     productFlavors {
         dev {
             dimension "flavor-type"
-            applicationId "com.app.dev"
+            applicationId "com.example.dev"
             resValue "string", "app_name", "App Dev"
         }
         prod {
             dimension "flavor-type"
-            applicationId "com.app.prod"
+            applicationId "com.example.prod"
             resValue "string", "app_name", "App Prod"
         }
         uat {
             dimension "flavor-type"
-            applicationId "com.app.uat"
+            applicationId "com.example.uat"
             resValue "string", "app_name", "App UAT"
         }
     }

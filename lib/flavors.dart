@@ -1,11 +1,26 @@
 enum Flavor {
   dev,
   prod,
-  uat,
+  uat;
+
+  getServerUrl() {
+    switch (this) {
+      case dev:
+        return '';
+      case prod:
+        return '';
+      case uat:
+        return '';
+      default:
+        return '';
+    }
+  }
 }
 
 class F {
   static Flavor? appFlavor;
+
+  static String get serverUrl => appFlavor!.getServerUrl();
 
   static String get name => appFlavor?.name ?? '';
 
@@ -21,5 +36,4 @@ class F {
         return 'title';
     }
   }
-
 }
